@@ -1,90 +1,125 @@
 # import the necessary packages
 from imutils import face_utils
 import numpy as np
-import argparse
 import imutils
 import dlib
 import cv2
-import collections
+import os
 import time
 
+from LBP import LocalBinaryPatterns
+from face_functions import crop_face_part
+from face_functions import FACIAL_LANDMARKS_IDXS
+import matplotlib.pyplot as plt
 
+# initialize the local binary patterns descriptor along with
+# the data and label lists
+desc = LocalBinaryPatterns(8, 1)
+data = []
+labels = []
 
+# initialize paths to directory
 
-def crop_face_part(x, y, w, h, ratioW, ratioH):
-    n_w = w * 1
-    n_h = h * 1
+imagesInPath = "data/images_gray"
+descriptionInPath = "data/description/gender_info.csv"
 
-    if (w / h < ratioW / ratioH):
-        while(n_h % ratioH != 0 ):
-            n_h = n_h + 1
-        n_w = int(n_h  * ratioW / ratioH)
+# load description data
+tmp = np.genfromtxt(descriptionInPath, delimiter=', ', dtype=None, encoding=None)
+genderDescDict = {}
+for (N, G) in tmp:
+    if str(G) == "F":
+        genderDescDict[N] = 1
     else:
-        if (w / h > ratioW / ratioH):
-            while(n_w % ratioW != 0 ):
-                n_w = n_w + 1
-            n_h = int(n_w  * ratioH / ratioW)
-        else:
-            n_w = w * 1
-            n_h = h * 1
-    n_x = int(x - np.floor_divide(n_w - w, 2))
-    n_y = int(y - np.floor_divide(n_h - h, 2))
+        genderDescDict[N] = 0
 
-    return n_x, n_y, n_w, n_h
-
-
-# define a dictionary that maps the indexes of the facial
-# landmarks to specific face regions
-FACIAL_LANDMARKS_IDXS = collections.OrderedDict([
-	("eyebrows", (17, 27, 250, 50, 10, 2)),
-	("eyes", (36, 48, 250, 50, 10, 2)),
-	("nose", (27, 36, 100, 100, 2, 2)),
-    ("mouth", (48, 68, 150, 50, 6, 2)),
-	("jaw", (5, 12, 150, 50, 6, 2))
-])
-
+N = 0
 
 # initialize dlib's face detector (HOG-based) and then create
 # the facial landmark predictor
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
 
+# iterate over images
+for filename in os.listdir(imagesInPath):
+    if filename.endswith(".ppm"):
+        print(filename)
+        start = time.time()
+        # load the input image and convert it to grayscale
+        image = cv2.imread(imagesInPath + "/" + filename)
+        gray = image[:, :, 0]
 
-start = time.time()
-# load the input image, resize it, and convert it to grayscale
-image = cv2.imread("00001_2.ppm")
-gray = image[:, :, 0]
+        # detect faces in the grayscale image
+        rects = detector(gray, 1)
 
-# detect faces in the grayscale image
-rects = detector(gray, 1)
 
-# loop over the face detections
-for (i, rect) in enumerate(rects):
-    # determine the facial landmarks for the face region, then
-    # convert the landmark (x, y)-coordinates to a NumPy array
-    shape = predictor(gray, rect)
-    shape = face_utils.shape_to_np(shape)
+        conacHist = []
+        # loop over the face detections
+        for (i, rect) in enumerate(rects):
+            # determine the facial landmarks for the face region, then
+            # convert the landmark (x, y)-coordinates to a NumPy array
+            shape = predictor(gray, rect)
+            shape = face_utils.shape_to_np(shape)
 
-    # loop over the face parts individually
-    for (name, (i, j, width, height,ratioW ,ratioH  )) in FACIAL_LANDMARKS_IDXS.items():
-    # clone the original image so we can draw on it, then
-        # display the name of the face part on the image
-        clone = image.copy()
+            # loop over the face parts individually
+            for (name, (i, j, width, height,ratioW ,ratioH  )) in FACIAL_LANDMARKS_IDXS.items():
+                # clone the original
+                clone = image.copy()
 
-        # extract the ROI of the face region as a separate image
-        (x, y, w, h) = cv2.boundingRect(np.array([shape[i:j]]))
+                # extract the ROI of the face region as a separate image
+                (x, y, w, h) = cv2.boundingRect(np.array([shape[i:j]]))
 
-        # crop fragment with proper H - W ratio
-        (x, y, w, h) = crop_face_part(x, y, w, h, ratioW, ratioH)
-        roi = image[y:y + h, x:x + w]
-        roi = imutils.resize(roi, width=width, height=height, inter=cv2.INTER_CUBIC)
-        print(roi.shape, " ", name)
+                # crop fragment with proper H - W ratio
+                (x, y, w, h) = crop_face_part(x, y, w, h, ratioW, ratioH)
+                roi = image[y:y + h, x:x + w]
+                roi = imutils.resize(roi, width=width, height=height, inter=cv2.INTER_CUBIC)
 
-        # show the particular face part
-        cv2.imshow("ROI "+name, roi)
+                # show the particular face part
+                # cv2.imshow("ROI "+name, roi)
 
-    # visualize all facial landmarks
-    cv2.imshow("Image", clone)
-    end = time.time()
-    print(end - start)
-    cv2.waitKey(0)
+                # describe ROI (LBP)
+                hist = desc.describe(roi[:,:,0])
+
+                conacHist = np.concatenate((conacHist, hist), axis=0)
+                # plt.bar( np.arange(hist.shape[0]), hist)
+                # plt.title("Histogram with 'auto' bins")
+                # plt.show()
+
+            # extract the label from the image path, then update the
+            # label and data lists
+            labels.append(genderDescDict[int(filename[0:5])])
+            data.append(conacHist)
+            # visualize all facial landmarks
+            # cv2.imshow("Image", clone)
+            end = time.time()
+            N += 1
+            print(N, " ", end - start)
+
+
+# print(labels)
+# print(data)
+# print(data[0].shape[0])
+
+new_file = "CLASS, "
+for name in ["Eyebrows_", "Eyes_", "Nose_", "Mouth_", "Jaw_"]:
+    for index in np.arange(1,data[0].shape[0] / 5 + 1):
+        new_file += name + str(int(index)) + ", "
+
+
+new_file = new_file[:-2] + '\n'
+
+for (index, row) in enumerate(data):
+    new_file += str(int(labels[index]))
+
+    for col in row:
+        new_file += ", " + str(int(col))
+
+    new_file += '\n'
+
+
+# create new CSV file nad write data to it
+fid = open("gender_data.csv", 'w')
+fid.write(new_file)
+fid.close()
+
+
+# cv2.waitKey(0)
