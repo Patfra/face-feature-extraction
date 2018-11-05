@@ -1,4 +1,3 @@
-*.ppm
 shape_predictor_68_face_landmarks.dat
 facial_landmarks.py
 test.py
