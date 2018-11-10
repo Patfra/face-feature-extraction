@@ -20,7 +20,7 @@ labels = []
 
 # initialize paths to directory
 
-imagesInPath = "data/images_gray"
+imagesInPath = "data/images_norm"
 descriptionInPath = "data/description/gender_info.csv"
 
 # load description data
@@ -117,7 +117,7 @@ for (index, row) in enumerate(data):
 
 
 # create new CSV file nad write data to it
-fid = open("gender_data.csv", 'w')
+fid = open("gender_data_norm.csv", 'w')
 fid.write(new_file)
 fid.close()
 
