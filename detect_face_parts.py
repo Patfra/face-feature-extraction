@@ -14,13 +14,14 @@ import matplotlib.pyplot as plt
 
 # initialize the local binary patterns descriptor along with
 # the data and label lists
-desc = LocalBinaryPatterns(8, 1)
+# desc = LocalBinaryPatterns(8, 1)
+desc = LocalBinaryPatterns(24, 8)
 data = []
 labels = []
 
 # initialize paths to directory
 
-imagesInPath = "data/images_norm"
+imagesInPath = "data/images_gray"
 descriptionInPath = "data/description/gender_info.csv"
 
 # load description data
@@ -117,7 +118,7 @@ for (index, row) in enumerate(data):
 
 
 # create new CSV file nad write data to it
-fid = open("gender_data_norm.csv", 'w')
+fid = open("gender_data_24_8.csv", 'w')
 fid.write(new_file)
 fid.close()
 
